@@ -8,6 +8,12 @@ import (
     "github.com/gorilla/websocket"
 )
 
+var globalHub = newHub()
+
+func init() {
+    globalHub.start()
+}
+
 func Routes() http.Handler {
     r := chi.NewRouter()
 
@@ -25,7 +31,7 @@ func Routes() http.Handler {
             return
         }
 
-        handler := NewHandler()
+        handler := NewHandler(globalHub)
         handler.HandleConnection(conn)
     })
 
