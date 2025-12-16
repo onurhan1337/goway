@@ -7,14 +7,21 @@ import (
 )
 
 type Handler struct {
+    hub *Hub
 }
 
 func NewHandler() *Handler {
-    return &Handler{}
+    h := &Handler{
+        hub: newHub(),
+    }
+    h.hub.start()
+    return h
 }
 
 func (h *Handler) HandleConnection(conn *websocket.Conn) {
     client := &Client{conn: conn, send: make(chan []byte)}
+
+    h.hub.register <- client
 
     go h.readPump(client)
     go h.writePump(client)
@@ -29,16 +36,19 @@ type Client struct {
 
 func (h *Handler) readPump(client *Client) {
     defer func() {
+        h.hub.unregister <- client
         close(client.send)
         client.conn.Close()
     }()
     for {
         _, msg, err := client.conn.ReadMessage()
         if err != nil {
-            log.Println("Read error:", err)
+            if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+                log.Printf("Unexpected read error: %v", err)
+            }
             break
         }
-        client.send <- msg
+        h.hub.broadcast <- msg
     }
 }
 
