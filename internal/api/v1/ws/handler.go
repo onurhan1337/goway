@@ -11,6 +11,12 @@ type Handler struct {
     hub *Hub
 }
 
+type Message struct {
+    Action  string `json:"action"`
+    Room    string `json:"room"`
+    Content string `json:"content"`
+}
+
 func NewHandler(hub *Hub) *Handler {
     return &Handler{
         hub: hub,
