@@ -1,6 +1,7 @@
 package ws
 
 import (
+    "encoding/json"
     "log"
 
     "github.com/gorilla/websocket"
@@ -10,12 +11,10 @@ type Handler struct {
     hub *Hub
 }
 
-func NewHandler() *Handler {
-    h := &Handler{
-        hub: newHub(),
+func NewHandler(hub *Hub) *Handler {
+    return &Handler{
+        hub: hub,
     }
-    h.hub.start()
-    return h
 }
 
 func (h *Handler) HandleConnection(conn *websocket.Conn) {
@@ -48,7 +47,34 @@ func (h *Handler) readPump(client *Client) {
             }
             break
         }
-        h.hub.broadcast <- msg
+
+        var message Message
+        if err := json.Unmarshal(msg, &message); err != nil {
+            log.Printf("An error occurred while parsing JSON: %v", err)
+            continue
+        }
+
+        switch message.Action {
+        case "subscribe":
+            h.hub.subscribe <- struct {
+                client *Client
+                room   string
+            }{client: client, room: message.Room}
+        case "unsubscribe":
+            h.hub.unsubscribe <- struct {
+                client *Client
+                room   string
+            }{client: client, room: message.Room}
+        case "send":
+            if message.Room != "" && message.Content != "" {
+                h.hub.broadcast <- struct {
+                    room string
+                    msg  []byte
+                }{room: message.Room, msg: []byte(message.Content)}
+            }
+        default:
+            log.Println("Unknown action:", message.Action)
+        }
     }
 }
 
